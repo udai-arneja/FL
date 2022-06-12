@@ -1,11 +1,6 @@
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# import tensorflow as tf
-import tensorflow.compat.v1 as tf
-tf.disable_v2_behavior()
-tf.disable_eager_execution()
-# init = tf.compat.v1.global_variables_initializer()
 from models.cnn_abstract import ModelCNNAbstract
 
 def weight_variable(shape):

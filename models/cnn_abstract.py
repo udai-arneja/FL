@@ -2,10 +2,6 @@ import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import numpy as np
-# import tensorflow as tf
-import tensorflow.compat.v1 as tf
-tf.disable_v2_behavior()
-tf.disable_eager_execution()
 import abc
 
 LOSS_ACC_BATCH_SIZE = 100  # When computing loss and accuracy, use blocks of LOSS_ACC_BATCH_SIZE
