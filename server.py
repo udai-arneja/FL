@@ -3,7 +3,7 @@ import time
 import numpy as np
 
 from data_reader.data_reader import get_data
-from models.get_model import get_model
+# from models.get_model import get_model
 from statistic.collect_stat import CollectStatistics
 from util.utils import send_msg, recv_msg, get_indices_each_node_case
 import matplotlib.pyplot as plt
@@ -34,9 +34,6 @@ def socketsInFLSystem():
 # model import, time generation, data organisation
 def setup():
     model = getCNNModel(step_size)
-    # model = get_model(model_name)
-    # if hasattr(model, 'create_graph'):
-    #     model.create_graph(learning_rate=step_size)
 
     if time_gen is not None:
         use_fixed_averaging_slots = True
@@ -113,8 +110,12 @@ if __name__ == "__main__":
                     stat.init_stat_new_global_round()
 
                     # initalise w_global
-                    dim_w = model.get_weight_dimension(train_image, train_label)
-                    w_global = model.get_init_weight(dim_w, rand_seed=sim)
+                    # dim_w = model.get_weight_dimension(train_image, train_label)
+                    w_global = model.get_weights()
+                    dim_w = np.array(w_global).shape
+
+                    print(dim_w, len(w_global))
+                    model.summary()
 
                     w_global_min_loss = None
                     loss_min = np.inf
@@ -185,11 +186,11 @@ if __name__ == "__main__":
                             loss_local_w_prev_min_loss = msg[6]
 
                             # generate noise
-                            noise = noiseDist*noiseGeneration(w_local, dim_w)
+                            # noise = noiseDist*noiseGeneration(w_local, dim_w)
 
-                            w_local = w_local
+                            w_local = np.array(w_local)
 
-                            w_global += w_local * data_size_local
+                            w_global = w_global + w_local * data_size_local
                             data_size_local_all.append(data_size_local)
                             data_size_total += data_size_local
                             time_all_local_all = max(time_all_local_all, time_all_local)   #Use max. time to take into account the slowest node
@@ -201,11 +202,12 @@ if __name__ == "__main__":
                                     received_loss_local_w_prev_min_loss = True
 
                         w_global /= data_size_total
-
-                        if True in np.isnan(w_global):
-                            print('*** w_global is NaN, using previous value')
-                            w_global = w_global_prev   # If current w_global contains NaN value, use previous w_global
-                            use_w_global_prev_due_to_nan = True
+                        for arr in w_global:
+                            if np.sum(arr) == np.NaN:
+                                print('*** w_global is NaN, using previous value')
+                                w_global = w_global_prev   # If current w_global contains NaN value, use previous w_global
+                                use_w_global_prev_due_to_nan = True
+                                break
                         else:
                             use_w_global_prev_due_to_nan = False
 

@@ -2,7 +2,7 @@
 
 osascript -e 'tell app "Terminal"
     do script "FYPC2 && python3 server.py"
-    delay 13
+    delay 20
     do script "FYPC2 && python3 client.py"
     do script "FYPC2 && python3 client.py"
     do script "FYPC2 && python3 client.py"
