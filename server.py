@@ -33,7 +33,6 @@ def socketsInFLSystem():
 
 # model import, time generation, data organisation
 def setup():
-    model = getCNNModel(step_size)
 
     if time_gen is not None:
         use_fixed_averaging_slots = True
@@ -47,7 +46,7 @@ def setup():
         # putting it outside of the sim loop because there is no randomness in the current way of computing the indices
         indices_each_node_case = get_indices_each_node_case(n_nodes, MAX_CASE, train_label_orig)
     
-    return [model, use_fixed_averaging_slots, train_image, train_label, test_image, test_label, train_label_orig, indices_each_node_case]
+    return [use_fixed_averaging_slots, train_image, train_label, test_image, test_label, train_label_orig, indices_each_node_case]
 
 # single or multi sim paths setup
 def simulationBegin(single_run):
@@ -74,16 +73,44 @@ def variablesSetup():
     return  (time_global_aggregation_all, total_time, total_time_recomputed, it_each_local, 
             it_each_global, is_last_round, is_eval_only, tau_new_resume)
 
-def noiseGeneration(w, dimensions):
-    mean = np.mean(w)
-    var = np.var(w)
-    npNoiseArray = np.random.normal(mean, var, dimensions)
+def noiseGeneration(w, noiseDist):
+    npNoiseArray = []
+    for rowIndex in range(len(w)):
+        row = w[rowIndex]
+        mean = np.mean(row)
+        var = np.var(row)
+        npNoise = np.random.normal(mean, var, row.shape) * noiseDist
+        # print(npNoise)
+        npNoiseArray.append(npNoise)
     return npNoiseArray
+
+def finalEval(evalSize, train_image, train_label):
+    train_image_batch = []
+    train_label_batch = []
+    batch_indices = np.random.choice(len(train_image), evalSize)
+    for x in batch_indices: 
+        train_image_batch.append(train_image[x])
+        train_label_batch.append(train_label[x])
+    train_image_batch = np.array(train_image_batch)
+    train_label_batch = np.array(train_label_batch)
+    train_image_batch = train_image_batch.reshape(evalSize, 28, 28, 1)
+
+    score = model.evaluate(train_image_batch, train_label_batch, verbose=0)
+    return score
+
+def weightsInfo(weights):
+    layers = len(weights)
+    totalMean = 0
+    totalVar = 0
+    for row in weights:
+        totalMean += np.mean(row)
+        totalVar += np.var(row)
+    return totalMean/layers, totalVar/layers
 
 if __name__ == "__main__":
     
     # model import, time generation, data organisation
-    [model, use_fixed_averaging_slots, train_image, train_label, test_image, test_label, train_label_orig, indices_each_node_case] = setup()
+    [use_fixed_averaging_slots, train_image, train_label, test_image, test_label, train_label_orig, indices_each_node_case] = setup()
 
     # clients joining the session
     client_sock_all = socketsInFLSystem()
@@ -92,6 +119,8 @@ if __name__ == "__main__":
     stat = simulationBegin(single_run)
 
     allGlobalLosses = []
+
+    noises = [500, 150, 60, 30, 10, 5,1, 0]
 
     control_alg = None
    
@@ -106,11 +135,14 @@ if __name__ == "__main__":
         for case in case_range:
 
             for tau_setup in tau_setup_all:
-                for noiseDist in range(1, 2):
-                    stat.init_stat_new_global_round()
+                for noiseDist in noises:
+
+                    print("####################################")
+                    print("############### %d ###############" % (noiseDist))
+                    print("####################################")
 
                     # initalise w_global
-                    # dim_w = model.get_weight_dimension(train_image, train_label)
+                    model = getCNNModel(step_size)
                     w_global = model.get_weights()
                     dim_w = np.array(w_global).shape
 
@@ -147,11 +179,16 @@ if __name__ == "__main__":
                         tau_new_resume) = variablesSetup()
 
                     # Loop for multiple rounds of local iterations + global aggregation
+
+                    currentEpoch = 0
+
                     while True:
 
-                        print('---------------------------------------------------------------------------')
 
-                        print('current tau config:', tau_config)
+
+                        print('---------------------------------------------------------------------------')
+                        currentEpoch += 1
+                        print('Current Epoch: ', currentEpoch ,', Tau config:', tau_config)
 
                         time_total_all_start = time.time()
 
@@ -162,7 +199,7 @@ if __name__ == "__main__":
 
                         w_global_prev = w_global
 
-                        print('Waiting for local iteration at client')
+                        # print('Waiting for local iteration at client')
 
                         w_global = np.zeros(dim_w)
                         loss_last_global = 0.0
@@ -186,9 +223,12 @@ if __name__ == "__main__":
                             loss_local_w_prev_min_loss = msg[6]
 
                             # generate noise
-                            # noise = noiseDist*noiseGeneration(w_local, dim_w)
-
-                            w_local = np.array(w_local)
+                            noise = noiseGeneration(w_local, noiseDist)
+                            # meanW, varW = weightsInfo(w_local)
+                            # print("Mean and Var before: %d, %d" % (meanW, varW), end=" | ")
+                            w_local = np.array(np.array(w_local) + noise, dtype=object)
+                            # meanW, varW = weightsInfo(w_local)
+                            # print("Mean and Var after: %d, %d" % (meanW, varW))
 
                             w_global = w_global + w_local * data_size_local
                             data_size_local_all.append(data_size_local)
@@ -245,8 +285,8 @@ if __name__ == "__main__":
                         time_total_all = time_total_all_end - time_total_all_start
                         time_global_aggregation_all = max(0.0, time_total_all - time_all_local_all)
 
-                        print('Time for one local iteration:', time_all_local_all / tau_actual)
-                        print('Time for global averaging:', time_global_aggregation_all)
+                        # print('Time for one local iteration:', time_all_local_all / tau_actual)
+                        # print('Time for global averaging:', time_global_aggregation_all)
 
                         if use_fixed_averaging_slots:
                             if isinstance(time_gen, (list,)):
@@ -265,9 +305,9 @@ if __name__ == "__main__":
                         #Compute time in current slot
                         total_time += time_total_all
 
-                        stat.collect_stat_end_local_round(case, tau_actual, it_each_local, it_each_global, control_alg, model,
-                                                    train_image, train_label, test_image, test_label, w_global,
-                                                    total_time_recomputed)
+                        # stat.collect_stat_end_local_round(case, tau_actual, it_each_local, it_each_global, control_alg, model,
+                                                    # train_image, train_label, test_image, test_label, w_global,
+                                                    # total_time_recomputed)
 
                         # Check remaining resource budget (use a smaller tau if the remaining time is not sufficient)
                         is_last_round_tmp = False
@@ -305,17 +345,16 @@ if __name__ == "__main__":
                             else:
                                 is_last_round = True
 
-                    if use_min_loss:
-                        w_eval = w_global_min_loss
-                    else:
-                        w_eval = w_global
+                    # if use_min_loss:
+                    #     w_eval = w_global_min_loss
+                    # else:
+                    #     w_eval = w_global
 
-                    accFinal, lossFinal = stat.collect_stat_end_global_round(sim, case, tau_setup, total_time, model, train_image, train_label,
-                                                    test_image, test_label, w_eval, total_time_recomputed)
+                    score = finalEval(10000, train_image, train_label)
+                    allGlobalLosses.append((noiseDist, score[1], score[0]))
 
-                    allGlobalLosses.append((noiseDist, accFinal, lossFinal))
         print("all Global Losses", allGlobalLosses)
         accuracy = []
-        for _,x,_ in allGlobalLosses: accuracy.append(x)
+        for (_,x,_) in allGlobalLosses: accuracy.append(x)
         plt.plot(accuracy)
         plt.show()

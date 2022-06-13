@@ -79,16 +79,6 @@ try:
         train_label = np.array(train_label)
         print("Train Image Shape: ", train_image.shape)
         print("Train Label Shape: ", train_label.shape)
-        # for image_Index in range(0, len(train_image)):
-        #     image = train_image[image_Index]
-        #     sublists = [image[x:x+28] for x in range(0, len(image), 28)]
-        #     train_image[image_Index] = sublists
-        # print(train_image.shape)
-
-        data = []
-        for i in range(0, len(train_image)):
-            data.append([train_image[i], train_label[i]])
-        model = getCNNModel(step_size)
 
         while True:
             print('---------------------------------------------------------------------------')
@@ -143,7 +133,7 @@ try:
 
                 train_image_batch = []
                 train_label_batch = []
-                batch_indices = np.random.choice(len(data), batch_size)
+                batch_indices = np.random.choice(len(train_image), batch_size)
                 for x in batch_indices: 
                     train_image_batch.append(train_image[x])
                     train_label_batch.append(train_label[x])
@@ -152,7 +142,7 @@ try:
                 train_image_batch = train_image_batch.reshape(100, 28, 28, 1)
 
                 if i == 0:
-                    train_pred_batch = model.predict(train_image_batch)
+                    # train_pred_batch = model.predict(train_image_batch)
                     score = model.evaluate(train_image_batch, train_label_batch, verbose=0)
                     loss_last_global = score[0]
 
@@ -163,8 +153,8 @@ try:
                             # Compute loss on w_prev_min_loss so that the batch remains the same
                             model2 = getCNNModel(step_size)
                             model2.set_weights(w_prev_min_loss)
-                            train_pred2 = model2.predict(train_image_batch, train_label_batch)
-                            loss_w_prev_min_loss = model2.compute_loss(train_image_batch, train_label_batch, train_pred2)
+                            score = model2.evaluate(train_image_batch, train_label_batch)
+                            loss_w_prev_min_loss = score[0] #model2.compute_loss(train_image_batch, train_label_batch, train_pred2)
 
                 print("Training model", end="\r")
                 model.set_weights(w)

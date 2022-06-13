@@ -27,3 +27,19 @@ class MinibatchSampling:
         self.start_index += self.batch_size
 
         return ret
+
+def sampling(batch_size, train_image, train_label):
+
+    train_image_batch = []
+    train_label_batch = []
+    batch_indices = np.random.choice(len(train_image), batch_size)
+
+    for x in batch_indices: 
+        train_image_batch.append(train_image[x])
+        train_label_batch.append(train_label[x])
+
+    train_image_batch = np.array(train_image_batch)
+    train_label_batch = np.array(train_label_batch)
+    train_image_batch = train_image_batch.reshape(100, 28, 28, 1)
+
+    return train_image_batch, train_label_batch

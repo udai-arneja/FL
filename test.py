@@ -1,9 +1,4 @@
 import time
-import sys
+import tensorflow as tf
 
-for i in range(100, 0, -1):
-	print(i, end="\r", flush=True)
-	time.sleep(0.2)
-	sys.stdout.write("\x1b[2K")
-print("\n")
-
+print(tf.config.list_physical_devices("GPU"))
