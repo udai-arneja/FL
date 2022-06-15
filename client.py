@@ -88,21 +88,21 @@ try:
             w = msg[1]
             tau_config = msg[2]
             is_last_round = msg[3]
-            prev_loss_is_min = msg[4]
+            # prev_loss_is_min = msg[4]
 
             model = getCNNModel(step_size)
             model.summary()
             print("Setting Weights", end="\r")
             model.set_weights(w)
             print("----Weights set----")
-            if prev_loss_is_min or ((w_prev_min_loss is None) and (w_last_global is not None)):
-                w_prev_min_loss = w_last_global
+            # if prev_loss_is_min or ((w_prev_min_loss is None) and (w_last_global is not None)):
+            #     w_prev_min_loss = w_last_global
 
             time_local_start = time.time()  #Only count this part as time for local iteration because the remaining part does not increase with tau
 
             # Perform local iteration
-            loss_last_global = None   # Only the loss at starting time is from global model parameter
-            loss_w_prev_min_loss = None
+            # loss_last_global = None   # Only the loss at starting time is from global model parameter
+            # loss_w_prev_min_loss = None
 
             tau_actual = 0
 
@@ -141,20 +141,20 @@ try:
                 train_label_batch = np.array(train_label_batch)
                 train_image_batch = train_image_batch.reshape(100, 28, 28, 1)
 
-                if i == 0:
-                    # train_pred_batch = model.predict(train_image_batch)
-                    score = model.evaluate(train_image_batch, train_label_batch, verbose=0)
-                    loss_last_global = score[0]
+                # if i == 0:
+                #     # train_pred_batch = model.predict(train_image_batch)
+                #     score = model.evaluate(train_image_batch, train_label_batch, verbose=0)
+                #     loss_last_global = score[0]
 
-                    w_last_global = w
+                #     w_last_global = w
 
-                    if use_min_loss:
-                        if (batch_size < total_data) and (w_prev_min_loss is not None):
-                            # Compute loss on w_prev_min_loss so that the batch remains the same
-                            model2 = getCNNModel(step_size)
-                            model2.set_weights(w_prev_min_loss)
-                            score = model2.evaluate(train_image_batch, train_label_batch)
-                            loss_w_prev_min_loss = score[0] #model2.compute_loss(train_image_batch, train_label_batch, train_pred2)
+                #     if use_min_loss:
+                #         if (batch_size < total_data) and (w_prev_min_loss is not None):
+                #             # Compute loss on w_prev_min_loss so that the batch remains the same
+                #             model2 = getCNNModel(step_size)
+                #             model2.set_weights(w_prev_min_loss)
+                #             score = model2.evaluate(train_image_batch, train_label_batch)
+                #             loss_w_prev_min_loss = score[0] #model2.compute_loss(train_image_batch, train_label_batch, train_pred2)
 
                 print("Training model", end="\r")
                 model.set_weights(w)
@@ -170,7 +170,7 @@ try:
             time_all_local = time_local_end - time_local_start
                 
             msg = ['MSG_WEIGHT_TIME_SIZE_CLIENT_TO_SERVER', w, time_all_local, tau_actual, data_size_local,
-                   loss_last_global, loss_w_prev_min_loss]
+                   None, None]
             send_msg(sock, msg)
 
             if is_last_round:

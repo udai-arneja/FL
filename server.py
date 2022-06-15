@@ -3,7 +3,6 @@ import time
 import numpy as np
 
 from data_reader.data_reader import get_data
-# from models.get_model import get_model
 from statistic.collect_stat import CollectStatistics
 from util.utils import send_msg, recv_msg, get_indices_each_node_case
 import matplotlib.pyplot as plt
@@ -84,7 +83,7 @@ def noiseGeneration(w, noiseDist):
         npNoiseArray.append(npNoise)
     return npNoiseArray
 
-def finalEval(evalSize, train_image, train_label):
+def evalModel(evalSize, train_image, train_label, model):
     train_image_batch = []
     train_label_batch = []
     batch_indices = np.random.choice(len(train_image), evalSize)
@@ -145,13 +144,11 @@ if __name__ == "__main__":
                     model = getCNNModel(step_size)
                     w_global = model.get_weights()
                     dim_w = np.array(w_global).shape
-
-                    print(dim_w, len(w_global))
                     model.summary()
 
+                    # setup min loss tracking
                     w_global_min_loss = None
-                    loss_min = np.inf
-                    prev_loss_is_min = False
+                    min_loss = np.inf
 
                     # tau processing (adaptive or fixed)
                     tau_config = tau_setup
@@ -165,26 +162,21 @@ if __name__ == "__main__":
                             use_min_loss, sim]
                         send_msg(client_sock_all[n], msg)
 
-                    print('All clients connected')
-
                     # Wait until all clients complete data preparation and sends a message back to the server
                     for n in range(0, n_nodes):
                         recv_msg(client_sock_all[n], 'MSG_DATA_PREP_FINISHED_CLIENT_TO_SERVER')
-
-                    # learning process
-                    print('Start learning')
+                    print('All clients connected')
 
                     (time_global_aggregation_all, total_time, total_time_recomputed,
                         it_each_local, it_each_global, is_last_round, is_eval_only,
                         tau_new_resume) = variablesSetup()
 
                     # Loop for multiple rounds of local iterations + global aggregation
-
                     currentEpoch = 0
 
+                    # learning process
+                    print('Start learning')
                     while True:
-
-
 
                         print('---------------------------------------------------------------------------')
                         currentEpoch += 1
@@ -193,18 +185,17 @@ if __name__ == "__main__":
                         time_total_all_start = time.time()
 
                         # send current weights and tau
+                        if currentEpoch != 1:
+                            w_global = w_global_min_loss
                         for n in range(0, n_nodes):
-                            msg = ['MSG_WEIGHT_TAU_SERVER_TO_CLIENT', w_global, tau_config, is_last_round, prev_loss_is_min]
+                            msg = ['MSG_WEIGHT_TAU_SERVER_TO_CLIENT', w_global, tau_config, is_last_round, True]
                             send_msg(client_sock_all[n], msg)
 
-                        w_global_prev = w_global
-
-                        # print('Waiting for local iteration at client')
-
                         w_global = np.zeros(dim_w)
-                        loss_last_global = 0.0
-                        loss_w_prev_min_loss = 0.0
-                        received_loss_local_w_prev_min_loss = False
+
+                        # loss_last_global = 0.0
+                        # loss_w_prev_min_loss = 0.0
+                        # received_loss_local_w_prev_min_loss = False
                         data_size_total = 0
                         time_all_local_all = 0
                         data_size_local_all = []
@@ -219,57 +210,63 @@ if __name__ == "__main__":
                             time_all_local = msg[2]
                             tau_actual = max(tau_actual, msg[3])  # Take max of tau because we wait for the slowest node
                             data_size_local = msg[4]
-                            loss_local_last_global = msg[5]
-                            loss_local_w_prev_min_loss = msg[6]
+                            # loss_local_last_global = msg[5]
+                            # loss_local_w_prev_min_loss = msg[6]
 
                             # generate noise
                             noise = noiseGeneration(w_local, noiseDist)
-                            # meanW, varW = weightsInfo(w_local)
-                            # print("Mean and Var before: %d, %d" % (meanW, varW), end=" | ")
                             w_local = np.array(np.array(w_local) + noise, dtype=object)
-                            # meanW, varW = weightsInfo(w_local)
-                            # print("Mean and Var after: %d, %d" % (meanW, varW))
 
                             w_global = w_global + w_local * data_size_local
                             data_size_local_all.append(data_size_local)
                             data_size_total += data_size_local
                             time_all_local_all = max(time_all_local_all, time_all_local)   #Use max. time to take into account the slowest node
 
-                            if use_min_loss:
-                                loss_last_global += loss_local_last_global * data_size_local
-                                if loss_local_w_prev_min_loss is not None:
-                                    loss_w_prev_min_loss += loss_local_w_prev_min_loss * data_size_local
-                                    received_loss_local_w_prev_min_loss = True
+                            # if use_min_loss:
+                            #     loss_last_global += loss_local_last_global * data_size_local
+                            #     if loss_local_w_prev_min_loss is not None:
+                            #         loss_w_prev_min_loss += loss_local_w_prev_min_loss * data_size_local
+                            #         received_loss_local_w_prev_min_loss = True
 
                         w_global /= data_size_total
                         for arr in w_global:
                             if np.sum(arr) == np.NaN:
                                 print('*** w_global is NaN, using previous value')
-                                w_global = w_global_prev   # If current w_global contains NaN value, use previous w_global
+                                w_global = w_global_min_loss   # If current w_global contains NaN value, use previous w_global
                                 use_w_global_prev_due_to_nan = True
                                 break
                         else:
                             use_w_global_prev_due_to_nan = False
 
-                        if use_min_loss:
-                            loss_last_global /= data_size_total
+                        # if use_min_loss:
+                        #     loss_last_global /= data_size_total
 
-                            if received_loss_local_w_prev_min_loss:
-                                loss_w_prev_min_loss /= data_size_total
-                                loss_min = loss_w_prev_min_loss
+                        #     if received_loss_local_w_prev_min_loss:
+                        #         loss_w_prev_min_loss /= data_size_total
+                        #         min_loss = loss_w_prev_min_loss
 
-                            if loss_last_global < loss_min:
-                                loss_min = loss_last_global
-                                w_global_min_loss = w_global_prev
-                                prev_loss_is_min = True
-                            else:
-                                prev_loss_is_min = False
+                        #     if loss_last_global < min_loss:
+                        #         min_loss = loss_last_global
+                        #         w_global_min_loss = w_global_prev
+                        #         prev_loss_is_min = True
+                        #     else:
+                        #         prev_loss_is_min = False
 
-                            print("Loss of previous global value: " + str(loss_last_global))
-                            print("Minimum loss: " + str(loss_min))
+                            # print("Loss of previous global value: " + str(loss_last_global))
+                        print("Minimum loss: " + str(min_loss))
 
                         # If use_w_global_prev_due_to_nan, then use tau = 1 for next round
                         if not use_w_global_prev_due_to_nan:
+                            w_global_prev = w_global
+                            # comparing current global weights to 
+                            model.set_weights(w_global_prev)
+                            score = evalModel(500, train_image, train_label, model) # batch size of 500 for global eval. - need reason for this
+                            if score[0] < min_loss:
+                                print("Updating Min Loss")
+                                w_global_min_loss = w_global_prev
+                                min_loss = score[0]
+                            else: print("Using current min loss")
+                            
                             if tau_new_resume is not None:
                                 tau_new = tau_new_resume
                                 tau_new_resume = None
@@ -349,8 +346,8 @@ if __name__ == "__main__":
                     #     w_eval = w_global_min_loss
                     # else:
                     #     w_eval = w_global
-
-                    score = finalEval(10000, train_image, train_label)
+                    model.set_weights(w_global_min_loss)
+                    score = evalModel(10000, train_image, train_label, model)
                     allGlobalLosses.append((noiseDist, score[1], score[0]))
 
         print("all Global Losses", allGlobalLosses)
