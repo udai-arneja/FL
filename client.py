@@ -91,7 +91,7 @@ try:
             # prev_loss_is_min = msg[4]
 
             model = getCNNModel(step_size)
-            model.summary()
+            # model.summary()
             print("Setting Weights", end="\r")
             model.set_weights(w)
             print("----Weights set----")

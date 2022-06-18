@@ -1,7 +1,7 @@
 #!/bin/sh
 
 osascript -e 'tell app "Terminal"
-    do script "FYPC2 && python3 server.py"
+    do script "FYPC2 && python3 server.py --one"
     delay 10
     do script "FYPC2 && python3 client.py"
     do script "FYPC2 && python3 client.py"

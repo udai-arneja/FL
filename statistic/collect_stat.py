@@ -2,6 +2,9 @@ import numpy as np
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import *
+import tensorflow as tf
+# from ../utils.sampling import sampling
+
 
 
 class CollectStatistics:
@@ -64,11 +67,12 @@ class CollectStatistics:
 
         if self.is_single_run:
 
-            loss_value = model.loss(train_image, train_label, w_global)
-            self.loss_values.append(loss_value)
+            # loss_value = model.loss(train_image, train_label, w_global)
+            score = model.evaluate(train_image, train_label, verbose=0)
+            self.loss_values.append(score[0])
 
-            prediction_accuracy = model.accuracy(test_image, test_label, w_global)
-            self.prediction_accuracies.append(prediction_accuracy)
+            # prediction_accuracy = model.accuracy(test_image, test_label, w_global)
+            self.prediction_accuracies.append(score[1])
 
             self.t_values.append(total_time_recomputed)
 
