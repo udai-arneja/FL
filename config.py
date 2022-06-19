@@ -74,7 +74,7 @@ if not single_run:
     case_range = range(0, 2) # to do with the data distributed to the nodes
 else:
     case_range = [0]   # Change if we want single run with other case, should only have one case
-    tau_setup_all = [10]   # Should only have one value
+    tau_setup_all = [5]   # Should only have one value
     sim_runs = [0]   # Should only have one value, the value specifies the random seed
 
 
